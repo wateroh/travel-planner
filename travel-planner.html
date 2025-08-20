@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>曼谷+普吉島旅行計畫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .collapse-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapse-content.open {
+            max-height: 1000px; /* Sufficiently large value for smooth transition */
+            transition: max-height 0.5s ease-in;
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<div id="app" class="p-4 sm:p-6 lg:p-8">
+    <!-- Main Title -->
+    <header class="text-center mb-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">我的曼谷 + 普吉島之旅</h1>
+        <p class="text-lg text-gray-600 mt-2">8/4 ~ 8/13</p>
+    </header>
+
+    <!-- Budget Tracker -->
+    <div class="bg-white p-6 rounded-3xl shadow-lg mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">預算追蹤</h2>
+        <div class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <div class="flex-1 w-full">
+                <label for="total-budget" class="block text-sm font-medium text-gray-700">總預算 (TWD)</label>
+                <input type="number" id="total-budget" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2" placeholder="輸入總預算">
+            </div>
+            <div class="flex-1 w-full">
+                <label for="current-spending" class="block text-sm font-medium text-gray-700">當前花費 (TWD)</label>
+                <input type="number" id="current-spending" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2" placeholder="輸入當前花費" readonly>
+            </div>
+        </div>
+        <div class="mt-4">
+            <div class="flex justify-between items-center text-sm font-medium text-gray-700">
+                <span>剩餘預算:</span>
+                <span id="remaining-budget" class="text-green-600 font-bold">TWD 0</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                <div id="budget-bar" class="bg-green-500 h-2.5 rounded-full" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Itinerary and Accommodations -->
+    <div class="bg-white p-6 rounded-3xl shadow-lg mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">行程安排</h2>
+        <div id="itinerary"></div>
+    </div>
+
+    <!-- Packing List -->
+    <div class="bg-white p-6 rounded-3xl shadow-lg mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">打包清單</h2>
+        <ul id="packing-list" class="space-y-2">
+            <!-- Packing items will be injected here -->
+        </ul>
+        <div class="mt-4 flex items-center space-x-2">
+            <input type="text" id="new-packing-item" class="flex-1 rounded-2xl border-gray-300 shadow-sm p-2" placeholder="新增打包項目">
+            <button id="add-packing-item-btn" class="bg-blue-500 text-white p-2 rounded-2xl shadow-md hover:bg-blue-600 transition-colors">新增</button>
+        </div>
+    </div>
+
+    <!-- Edit Activity Modal -->
+    <div id="edit-activity-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center opacity-0 invisible z-50">
+        <div class="bg-white p-6 rounded-3xl shadow-xl w-11/12 sm:w-2/3 md:w-1/2 lg:w-1/3">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">編輯活動</h3>
+            <form id="edit-activity-form">
+                <input type="hidden" id="edit-activity-index">
+                <div class="mb-4">
+                    <label for="edit-activity-time" class="block text-sm font-medium text-gray-700">時間</label>
+                    <input type="time" id="edit-activity-time" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="mb-4">
+                    <label for="edit-activity-title" class="block text-sm font-medium text-gray-700">活動標題</label>
+                    <input type="text" id="edit-activity-title" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="mb-4">
+                    <label for="edit-activity-description" class="block text-sm font-medium text-gray-700">詳細描述</label>
+                    <textarea id="edit-activity-description" rows="3" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="edit-activity-cost" class="block text-sm font-medium text-gray-700">預估花費 (TWD)</label>
+                    <input type="number" id="edit-activity-cost" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="close-activity-modal-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-2xl hover:bg-gray-400 transition-colors">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-colors">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Accommodation Modal -->
+    <div id="edit-accommodation-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center opacity-0 invisible z-50">
+        <div class="bg-white p-6 rounded-3xl shadow-xl w-11/12 sm:w-2/3 md:w-1/2 lg:w-1/3">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">編輯住宿資訊</h3>
+            <form id="edit-accommodation-form">
+                <input type="hidden" id="edit-accommodation-index">
+                <div class="mb-4">
+                    <label for="edit-accommodation-name" class="block text-sm font-medium text-gray-700">住宿名稱</label>
+                    <input type="text" id="edit-accommodation-name" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="mb-4">
+                    <label for="edit-accommodation-link" class="block text-sm font-medium text-gray-700">Google 地圖連結</label>
+                    <input type="url" id="edit-accommodation-link" class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="close-accommodation-modal-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-2xl hover:bg-gray-400 transition-colors">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-colors">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DATA STATE ---
+        let totalBudget = 0;
+        let itineraryData = [];
+        let packingListItems = [];
+
+        // Sample Data for a 10-day trip with time
+        itineraryData = [
+            {
+                date: '8/4 (星期一)',
+                location: '台北 → 曼谷',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example1' },
+                activities: [
+                    { time: '18:30', title: '桃園機場報到', description: '搭乘華航CI835航班', cost: 7704 },
+                    { time: '21:20', title: '抵達曼谷蘇凡納布米機場', description: '辦理落地簽證，前往市區', cost: 0 },
+                    { time: '22:00', title: '入住飯店', description: '放下行李，稍作休息', cost: 0 },
+                    { time: '22:30', title: 'Terminal 21逛街', description: '晚餐並逛街', cost: 500 },
+                ]
+            },
+            {
+                date: '8/5 (星期二)',
+                location: '曼谷市區',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example1' },
+                activities: [
+                    { time: '09:00', title: '大皇宮', description: '參觀泰國最宏偉的宮殿', cost: 500 },
+                    { time: '13:00', title: '臥佛寺', description: '欣賞巨大的臥佛像', cost: 300 },
+                    { time: '16:00', title: '泰式按摩', description: '放鬆身心', cost: 800 },
+                ]
+            },
+            {
+                date: '8/6 (星期三)',
+                location: '曼谷市區',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example1' },
+                activities: [
+                    { time: '10:00', title: '洽圖洽週末市集', description: '尋找特色小物與美食', cost: 1000 },
+                    { time: '15:00', title: 'Siam Paragon', description: '逛高級購物中心', cost: 0 },
+                    { time: '19:00', title: '晚餐', description: '享用泰式海鮮大餐', cost: 800 },
+                ]
+            },
+            {
+                date: '8/7 (星期四)',
+                location: '曼谷 → 普吉島',
+                accommodation: { name: '普吉島住宿', link: 'https://maps.app.goo.gl/example2' },
+                activities: [
+                    { time: '09:45', title: '國內線航班', description: '搭乘亞航前往普吉島', cost: 2712 },
+                    { time: '11:10', title: '普吉島機場', description: '搭車前往飯店', cost: 500 },
+                    { time: '14:00', title: '芭東海灘', description: '在海灘上散步', cost: 0 },
+                    { time: '19:00', title: '普吉島夜市', description: '逛夜市並吃晚餐', cost: 500 },
+                ]
+            },
+            {
+                date: '8/8 (星期五)',
+                location: '普吉島',
+                accommodation: { name: '普吉島住宿', link: 'https://maps.app.goo.gl/example2' },
+                activities: [
+                    { time: '08:00', title: '跳島行程', description: '前往PP島或斯米蘭群島', cost: 2500 },
+                    { time: '11:00', title: '浮潛', description: '欣賞美麗的海底世界', cost: 0 },
+                    { time: '19:00', title: '晚餐', description: '在海邊餐廳用餐', cost: 800 },
+                ]
+            },
+            {
+                date: '8/9 (星期六)',
+                location: '普吉島',
+                accommodation: { name: '普吉島住宿', link: 'https://maps.app.goo.gl/example2' },
+                activities: [
+                    { time: '10:00', title: '普吉鎮', description: '探索老城區的歷史建築', cost: 300 },
+                    { time: '14:00', title: '普吉島大佛', description: '俯瞰普吉島全景', cost: 0 },
+                    { time: '20:00', title: '看秀', description: '觀賞知名的人妖秀或幻多奇秀', cost: 1500 },
+                ]
+            },
+            {
+                date: '8/10 (星期日)',
+                location: '普吉島',
+                accommodation: { name: '普吉島住宿', link: 'https://maps.app.goo.gl/example2' },
+                activities: [
+                    { time: '11:00', title: '海灘活動', description: '在其他海灘如卡隆海灘放鬆', cost: 0 },
+                    { time: '15:00', title: '購物', description: '購買紀念品', cost: 1000 },
+                    { time: '19:00', title: '晚餐', description: '再吃一次泰國美食', cost: 800 },
+                ]
+            },
+            {
+                date: '8/11 (星期一)',
+                location: '普吉島 → 曼谷',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example3' },
+                activities: [
+                    { time: '12:00', title: '退房', description: '前往機場', cost: 0 },
+                    { time: '15:00', title: '曼谷住宿', description: '回到曼谷的飯店，放鬆休息', cost: 0 },
+                    { time: '19:00', title: '河濱夜市', description: '逛Asiatique The Riverfront', cost: 500 },
+                ]
+            },
+            {
+                date: '8/12 (星期二)',
+                location: '曼谷',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example3' },
+                activities: [
+                    { time: '09:00', title: '水上市場', description: '體驗丹嫩莎朵水上市場', cost: 1000 },
+                    { time: '14:00', title: '買伴手禮', description: '在Big C或其他超市採購', cost: 1500 },
+                    { time: '19:00', title: '晚餐', description: '吃個MAMA麵', cost: 300 },
+                ]
+            },
+            {
+                date: '8/13 (星期三)',
+                location: '曼谷 → 台北',
+                accommodation: { name: '曼谷住宿', link: 'https://maps.app.goo.gl/example3' },
+                activities: [
+                    { time: '07:25', title: '退房', description: '前往機場', cost: 0 },
+                    { time: '12:20', title: '搭機返回台北', description: '搭乘華航CI836航班', cost: 0 },
+                ]
+            },
+        ];
+
+        packingListItems = [
+            { text: '護照、簽證', checked: false },
+            { text: '機票、住宿預訂單', checked: false },
+            { text: '泰銖、信用卡', checked: false },
+            { text: '防曬乳、太陽眼鏡、帽子', checked: false },
+            { text: '泳衣', checked: false },
+            { text: '輕便衣物、涼鞋', checked: false },
+            { text: '充電器、行動電源', checked: false },
+            { text: '個人藥品', checked: false },
+            { text: '盥洗用品', checked: false },
+        ];
+
+        // --- DOM ELEMENTS ---
+        const totalBudgetInput = document.getElementById('total-budget');
+        const currentSpendingInput = document.getElementById('current-spending');
+        const remainingBudgetSpan = document.getElementById('remaining-budget');
+        const budgetBar = document.getElementById('budget-bar');
+        const itineraryContainer = document.getElementById('itinerary');
+        const packingListContainer = document.getElementById('packing-list');
+        const newPackingItemInput = document.getElementById('new-packing-item');
+        const addPackingItemBtn = document.getElementById('add-packing-item-btn');
+        
+        // Activity Modal Elements
+        const editActivityModal = document.getElementById('edit-activity-modal');
+        const closeActivityModalBtn = document.getElementById('close-activity-modal-btn');
+        const editActivityForm = document.getElementById('edit-activity-form');
+        const editActivityIndexInput = document.getElementById('edit-activity-index');
+        const editActivityTimeInput = document.getElementById('edit-activity-time');
+        const editActivityTitleInput = document.getElementById('edit-activity-title');
+        const editActivityDescriptionInput = document.getElementById('edit-activity-description');
+        const editActivityCostInput = document.getElementById('edit-activity-cost');
+
+        // Accommodation Modal Elements
+        const editAccommodationModal = document.getElementById('edit-accommodation-modal');
+        const closeAccommodationModalBtn = document.getElementById('close-accommodation-modal-btn');
+        const editAccommodationForm = document.getElementById('edit-accommodation-form');
+        const editAccommodationIndexInput = document.getElementById('edit-accommodation-index');
+        const editAccommodationNameInput = document.getElementById('edit-accommodation-name');
+        const editAccommodationLinkInput = document.getElementById('edit-accommodation-link');
+
+        // --- FUNCTIONS ---
+
+        // Render the entire page
+        function render() {
+            renderBudget();
+            renderItinerary();
+            renderPackingList();
+        }
+
+        // Render Budget section
+        function renderBudget() {
+            let totalSpending = itineraryData.reduce((sum, day) => {
+                return sum + day.activities.reduce((daySum, activity) => daySum + parseFloat(activity.cost || 0), 0);
+            }, 0);
+            
+            totalBudget = parseFloat(totalBudgetInput.value) || 0;
+            let remainingBudget = totalBudget - totalSpending;
+            let budgetPercentage = totalBudget > 0 ? (totalSpending / totalBudget) * 100 : 0;
+
+            currentSpendingInput.value = totalSpending.toFixed(0);
+            remainingBudgetSpan.textContent = `TWD ${remainingBudget.toFixed(0)}`;
+            remainingBudgetSpan.classList.toggle('text-red-500', remainingBudget < 0);
+            remainingBudgetSpan.classList.toggle('text-green-600', remainingBudget >= 0);
+            budgetBar.style.width = `${Math.min(100, budgetPercentage)}%`;
+            budgetBar.classList.toggle('bg-red-500', budgetPercentage > 100);
+            budgetBar.classList.toggle('bg-green-500', budgetPercentage <= 100);
+        }
+
+        // Render Packing List section
+        function renderPackingList() {
+            packingListContainer.innerHTML = '';
+            packingListItems.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 bg-gray-50 rounded-2xl';
+                
+                const checkboxContainer = document.createElement('div');
+                checkboxContainer.className = 'flex items-center space-x-2';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-checkbox h-5 w-5 text-blue-600 rounded';
+                checkbox.checked = item.checked;
+                checkbox.onchange = () => togglePackingItem(index);
+                
+                const label = document.createElement('span');
+                label.className = `text-gray-800 ${item.checked ? 'line-through text-gray-500' : ''}`;
+                label.textContent = item.text;
+
+                checkboxContainer.appendChild(checkbox);
+                checkboxContainer.appendChild(label);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 hover:text-red-700 transition-colors';
+                deleteBtn.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                `;
+                deleteBtn.onclick = () => deletePackingItem(index);
+
+                li.appendChild(checkboxContainer);
+                li.appendChild(deleteBtn);
+                packingListContainer.appendChild(li);
+            });
+        }
+        
+        // 將渲染單日行程內容的邏輯抽離成一個獨立函式
+        function renderDayContent(dayDiv, day, dayIndex, keepOpen = false) {
+            // 這個函式將負責建立並填充當天行程的所有內部元素
+            dayDiv.innerHTML = ''; // 清空舊內容
+            
+            // Day header with collapse functionality
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-center cursor-pointer';
+            header.innerHTML = `
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-800">${day.date}</h3>
+                    <p class="text-gray-600">${day.location}</p>
+                </div>
+                <svg class="w-6 h-6 text-gray-500 transform transition-transform ${keepOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            `;
+            dayDiv.appendChild(header);
+            
+            // Detailed content section (collapsed by default)
+            const content = document.createElement('div');
+            content.className = `collapse-content mt-4 ${keepOpen ? 'open' : ''}`;
+            
+            // Accommodation Block with Edit button
+            const accommodationDiv = document.createElement('div');
+            accommodationDiv.className = 'bg-white border-l-4 border-blue-500 p-4 rounded-3xl shadow-inner mb-4 flex items-center justify-between';
+            
+            const accommodationDetails = document.createElement('div');
+            // 檢查連結是否存在，如果不存在則只顯示名稱
+            if (day.accommodation.link) {
+                accommodationDetails.innerHTML = `
+                    <p class="text-blue-600 font-medium">住宿：<a href="${day.accommodation.link}" target="_blank" class="hover:underline">${day.accommodation.name}</a></p>
+                `;
+            } else {
+                accommodationDetails.innerHTML = `
+                    <p class="text-blue-600 font-medium">住宿：${day.accommodation.name}</p>
+                `;
+            }
+            accommodationDiv.appendChild(accommodationDetails);
+            
+            const editAccommodationBtn = document.createElement('button');
+            editAccommodationBtn.className = 'px-3 py-1 bg-yellow-500 text-white text-sm rounded-xl shadow-md hover:bg-yellow-600 transition-colors ml-4';
+            editAccommodationBtn.textContent = '編輯';
+            editAccommodationBtn.onclick = () => openEditAccommodationModal(dayIndex);
+            accommodationDiv.appendChild(editAccommodationBtn);
+            
+            content.appendChild(accommodationDiv);
+            
+            // Activities list
+            const activitiesList = document.createElement('ul');
+            activitiesList.className = 'space-y-4';
+            day.activities.forEach((activity, activityIndex) => {
+                const activityLi = document.createElement('li');
+                activityLi.className = 'p-3 bg-white rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0';
+                
+                const activityDetails = document.createElement('div');
+                activityDetails.className = 'flex-1';
+                activityDetails.innerHTML = `
+                    <p class="font-semibold text-gray-800"><span class="text-blue-600 font-medium mr-2">${activity.time}</span>${activity.title}</p>
+                    <p class="text-sm text-gray-600 mt-1">${activity.description}</p>
+                    <p class="text-sm text-gray-500 mt-1">預估花費: TWD ${activity.cost || 0}</p>
+                `;
+                activityLi.appendChild(activityDetails);
+                
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'flex-shrink-0 flex space-x-2 mt-2 sm:mt-0';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'px-3 py-1 bg-yellow-500 text-white text-sm rounded-xl shadow-md hover:bg-yellow-600 transition-colors';
+                editBtn.textContent = '編輯';
+                editBtn.onclick = () => openEditActivityModal(dayIndex, activityIndex);
+                actionButtons.appendChild(editBtn);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'px-3 py-1 bg-red-500 text-white text-sm rounded-xl shadow-md hover:bg-red-600 transition-colors';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.onclick = () => deleteActivity(dayIndex, activityIndex);
+                actionButtons.appendChild(deleteBtn);
+                
+                activityLi.appendChild(actionButtons);
+                activitiesList.appendChild(activityLi);
+            });
+            content.appendChild(activitiesList);
+            
+            // Add activity button
+            const addActivityBtn = document.createElement('button');
+            addActivityBtn.className = 'mt-4 w-full px-4 py-2 bg-green-500 text-white rounded-2xl shadow-md hover:bg-green-600 transition-colors';
+            addActivityBtn.textContent = '新增活動';
+            addActivityBtn.onclick = () => addActivity(dayIndex);
+            content.appendChild(addActivityBtn);
+            
+            dayDiv.appendChild(content);
+
+            // Toggle collapse on header click
+            header.addEventListener('click', () => {
+                content.classList.toggle('open');
+                header.querySelector('svg').classList.toggle('rotate-180');
+            });
+        }
+        
+        // Render Itinerary section - Initial Full Render
+        function renderItinerary() {
+            itineraryContainer.innerHTML = '';
+            itineraryData.forEach((day, dayIndex) => {
+                const dayDiv = document.createElement('div');
+                dayDiv.id = `day-${dayIndex}`; // 為每個日期的區塊新增 ID
+                dayDiv.className = 'bg-gray-50 p-4 rounded-2xl shadow-sm mb-4';
+                
+                renderDayContent(dayDiv, day, dayIndex); // 呼叫單日渲染函式
+                
+                itineraryContainer.appendChild(dayDiv);
+            });
+        }
+
+        // 獨立函式：只重新渲染單一天的行程內容，並保留展開狀態
+        function refreshDayDisplay(dayIndex, wasOpen) {
+            const dayDiv = document.getElementById(`day-${dayIndex}`);
+            if (dayDiv) {
+                const dayData = itineraryData[dayIndex];
+                renderDayContent(dayDiv, dayData, dayIndex, wasOpen);
+            }
+        }
+        
+        // --- HANDLERS ---
+        totalBudgetInput.addEventListener('input', renderBudget);
+
+        addPackingItemBtn.addEventListener('click', () => {
+            const newItem = newPackingItemInput.value.trim();
+            if (newItem) {
+                packingListItems.push({ text: newItem, checked: false });
+                newPackingItemInput.value = '';
+                renderPackingList();
+            }
+        });
+
+        function togglePackingItem(index) {
+            packingListItems[index].checked = !packingListItems[index].checked;
+            renderPackingList();
+        }
+
+        function deletePackingItem(index) {
+            packingListItems.splice(index, 1);
+            renderPackingList();
+        }
+
+        function addActivity(dayIndex) {
+            itineraryData[dayIndex].activities.push({
+                time: '',
+                title: '新活動',
+                description: '點擊編輯以修改',
+                cost: 0
+            });
+            // 檢查當前狀態，並傳遞給更新函式
+            const wasOpen = document.getElementById(`day-${dayIndex}`).querySelector('.collapse-content').classList.contains('open');
+            refreshDayDisplay(dayIndex, wasOpen);
+            renderBudget();
+        }
+
+        function deleteActivity(dayIndex, activityIndex) {
+            itineraryData[dayIndex].activities.splice(activityIndex, 1);
+            // 檢查當前狀態，並傳遞給更新函式
+            const wasOpen = document.getElementById(`day-${dayIndex}`).querySelector('.collapse-content').classList.contains('open');
+            refreshDayDisplay(dayIndex, wasOpen);
+            renderBudget();
+        }
+
+        // Activity Modal Logic
+        function openEditActivityModal(dayIndex, activityIndex) {
+            const activity = itineraryData[dayIndex].activities[activityIndex];
+            editActivityIndexInput.value = `${dayIndex}-${activityIndex}`;
+            editActivityTimeInput.value = activity.time;
+            editActivityTitleInput.value = activity.title;
+            editActivityDescriptionInput.value = activity.description;
+            editActivityCostInput.value = activity.cost;
+            editActivityModal.classList.remove('invisible', 'opacity-0');
+            editActivityModal.classList.add('visible', 'opacity-100');
+        }
+
+        closeActivityModalBtn.addEventListener('click', () => {
+            editActivityModal.classList.remove('visible', 'opacity-100');
+            editActivityModal.classList.add('invisible', 'opacity-0');
+        });
+
+        editActivityForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const [dayIndex, activityIndex] = editActivityIndexInput.value.split('-');
+            
+            itineraryData[dayIndex].activities[activityIndex] = {
+                time: editActivityTimeInput.value,
+                title: editActivityTitleInput.value,
+                description: editActivityDescriptionInput.value,
+                cost: parseFloat(editActivityCostInput.value) || 0
+            };
+
+            // 檢查當前狀態，並傳遞給更新函式
+            const wasOpen = document.getElementById(`day-${dayIndex}`).querySelector('.collapse-content').classList.contains('open');
+            refreshDayDisplay(dayIndex, wasOpen);
+            renderBudget();
+            closeActivityModalBtn.click(); // Close modal after saving
+        });
+
+        // Accommodation Modal Logic
+        function openEditAccommodationModal(dayIndex) {
+            const accommodation = itineraryData[dayIndex].accommodation;
+            editAccommodationIndexInput.value = dayIndex;
+            editAccommodationNameInput.value = accommodation.name;
+            editAccommodationLinkInput.value = accommodation.link;
+            editAccommodationModal.classList.remove('invisible', 'opacity-0');
+            editAccommodationModal.classList.add('visible', 'opacity-100');
+        }
+
+        closeAccommodationModalBtn.addEventListener('click', () => {
+            editAccommodationModal.classList.remove('visible', 'opacity-100');
+            editAccommodationModal.classList.add('invisible', 'opacity-0');
+        });
+
+        editAccommodationForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const dayIndex = editAccommodationIndexInput.value;
+            
+            itineraryData[dayIndex].accommodation.name = editAccommodationNameInput.value;
+            itineraryData[dayIndex].accommodation.link = editAccommodationLinkInput.value;
+            
+            // 檢查當前狀態，並傳遞給更新函式
+            const wasOpen = document.getElementById(`day-${dayIndex}`).querySelector('.collapse-content').classList.contains('open');
+            refreshDayDisplay(dayIndex, wasOpen);
+            closeAccommodationModalBtn.click(); // Close modal after saving
+        });
+
+        // Initial render
+        render();
+    });
+</script>
+
+</body>
+</html>
